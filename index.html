@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beautiful Empathy</title>
+    <style>
+        :root {
+            --bg-color: #f5f5f5;
+            --text-color: #333;
+            --primary: #6b006b;
+            --secondary: #006b6b;
+            --accent: #ff8000;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 1rem;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            letter-spacing: 2px;
+        }
+        
+        .game-container {
+            display: flex;
+            flex: 1;
+            padding: 1rem;
+            gap: 1rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        
+        .panel {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .left-panel {
+            width: 350px;
+            flex-shrink: 0;
+        }
+        
+        .center-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+        
+        .right-panel {
+            width: 500px;
+            flex-shrink: 0;
+        }
+        
+        .color-map {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            background: #fff;
+            border: 2px solid #ddd;
+        }
+        
+        .color-map canvas {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .mosaic-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1;
+            max-width: 480px;
+            background: #fff;
+            border: 2px solid #333;
+        }
+        
+        .mosaic-container canvas {
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+        
+        .screen {
+            display: none;
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+        
+        .screen.active {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .screen h2 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+        
+        .btn {
+            padding: 0.8rem 1.5rem;
+            font-size: 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+            margin: 0.3rem;
+        }
+        
+        .btn:hover {
+            transform: scale(1.02);
+            opacity: 0.9;
+        }
+        
+        .btn:active {
+            transform: scale(0.98);
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: var(--secondary);
+            color: white;
+        }
+        
+        .btn-accent {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+        
+        input, select {
+            padding: 0.5rem;
+            font-size: 1rem;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            margin: 0.3rem;
+        }
+        
+        input:focus, select:focus {
+            border-color: var(--primary);
+            outline: none;
+        }
+        
+        .player-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+        
+        .player-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+        }
+        
+        .player-item input {
+            width: 80px;
+        }
+        
+        .color-swatch {
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            border: 2px solid #333;
+        }
+        
+        .color-option {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 3px solid transparent;
+            margin: 0.2rem;
+            transition: transform 0.1s;
+        }
+        
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+        
+        .color-option.selected {
+            border-color: #333;
+            transform: scale(1.1);
+        }
+        
+        .shape-info {
+            background: #f0f0f0;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 0.5rem 0;
+        }
+        
+        .question-display {
+            background: #fff8dc;
+            padding: 1.5rem;
+            border-radius: 8px;
+            font-style: italic;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin: 1rem 0;
+        }
+        
+        .options-display {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin: 1rem 0;
+        }
+        
+        .option-btn {
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            background: white;
+            border: 2px solid var(--primary);
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        
+        .option-btn:hover {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .paint-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            background: #f0f0f0;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+        }
+        
+        .round-info {
+            background: var(--primary);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .turn-info {
+            background: var(--secondary);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+        }
+        
+        .score-display {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin: 1rem 0;
+        }
+        
+        .score-item {
+            text-align: center;
+        }
+        
+        .score-item .value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+        
+        @media (max-width: 1200px) {
+            .game-container {
+                flex-direction: column;
+            }
+            .left-panel, .right-panel {
+                width: 100%;
+            }
+            .color-map {
+                margin: 0 auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Beautiful Empathy</h1>
+    </header>
+    
+    <div class="game-container">
+        <div class="panel left-panel">
+            <h3>Color Map</h3>
+            <div class="color-map">
+                <canvas id="colorMapCanvas" width="300" height="300"></canvas>
+            </div>
+            <div id="playerColors"></div>
+        </div>
+        
+        <div class="panel center-panel" id="centerPanel">
+            <div class="screen active" id="welcomeScreen">
+                <h2>Welcome to Beautiful Empathy</h2>
+                <p>A collaborative game where players paint a mosaic together.</p>
+                <p>On your left is the Color Map showing colors you own.</p>
+                <p>On your right is the Mosaic - the canvas you'll paint.</p>
+                <button class="btn btn-primary" onclick="goToNumPlayers()">Start Game</button>
+            </div>
+            
+            <div class="screen" id="numPlayersScreen">
+                <h2>How many painters?</h2>
+                <select id="numPlayersSelect">
+                    <option value="1">1 Player</option>
+                    <option value="2">2 Players</option>
+                    <option value="3">3 Players</option>
+                    <option value="4">4 Players</option>
+                    <option value="5">5 Players</option>
+                    <option value="6">6 Players</option>
+                </select>
+                <button class="btn btn-primary" onclick="goToPlayerNames()">Next</button>
+            </div>
+            
+            <div class="screen" id="playerNamesScreen">
+                <h2>Enter Player Names</h2>
+                <div id="playerNameInputs"></div>
+                <button class="btn btn-primary" onclick="goToInitialColors()">Next</button>
+            </div>
+            
+            <div class="screen" id="initialColorsScreen">
+                <h2>Your Initial Colors</h2>
+                <p>Discuss your chromatic interests!</p>
+                <div id="initialColorsDisplay"></div>
+                <button class="btn btn-primary" onclick="goToGameType()">Ready to Roll!</button>
+            </div>
+            
+            <div class="screen" id="gameTypeScreen">
+                <h2>Choose Game Type</h2>
+                <button class="btn btn-primary" onclick="startGame(false)">Beauty & Empathy</button>
+                <button class="btn btn-secondary" onclick="startGame(true)">Beauty Only</button>
+            </div>
+            
+            <div class="screen" id="interRoundScreen">
+                <div class="round-info" id="roundNumberDisplay"></div>
+                <div id="interRoundContent"></div>
+            </div>
+            
+            <div class="screen" id="empathyScreen">
+                <h2>Empathy Phase</h2>
+                <div class="turn-info" id="empathyPlayerDisplay"></div>
+                <div id="empathyContent"></div>
+            </div>
+            
+            <div class="screen" id="paintScreen">
+                <div class="paint-info">
+                    <div class="round-info" id="paintRoundDisplay"></div>
+                    <div class="turn-info" id="paintPlayerDisplay"></div>
+                </div>
+                <h3>Choose a Color</h3>
+                <div id="paintColorOptions"></div>
+                <div class="shape-info" id="shapeInfo"></div>
+                <div class="paint-info">
+                    <span>Painted: <span id="paintCount">0</span> / <span id="paintTotal">0</span></span>
+                </div>
+                <button class="btn btn-outline" onclick="resetPaint()">Reset</button>
+                <button class="btn btn-primary" onclick="confirmPaint()">Confirm</button>
+            </div>
+            
+            <div class="screen" id="endScreen">
+                <h2>Game Complete!</h2>
+                <p>Your mosaic is done.</p>
+                <p>This is the result of your empathy and artistry.</p>
+                <button class="btn btn-primary" onclick="resetGame()">Play Again</button>
+            </div>
+        </div>
+        
+        <div class="panel right-panel">
+            <h3>Mosaic</h3>
+            <div class="mosaic-container">
+                <canvas id="mosaicCanvas" width="480" height="480"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
