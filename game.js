@@ -121,6 +121,145 @@ const EDGES = [
     [69,70], [70,71], [71,72], [72,61]
 ];
 
+const SHAPE_TYPES = {
+    "small-square": {
+        name: "Small Square",
+        grid: [[1]],
+        cells: 1
+    },
+    "big-square": {
+        name: "Big Square",
+        grid: [[1, 1], [1, 1]],
+        cells: 4
+    },
+    "line-2h": {
+        name: "Line 2 Horizontal",
+        grid: [[1, 1]],
+        cells: 2
+    },
+    "line-2v": {
+        name: "Line 2 Vertical",
+        grid: [[1], [1]],
+        cells: 2
+    },
+    "line-3h": {
+        name: "Line 3 Horizontal",
+        grid: [[1, 1, 1]],
+        cells: 3
+    },
+    "line-3v": {
+        name: "Line 3 Vertical",
+        grid: [[1], [1], [1]],
+        cells: 3
+    },
+    "line-4h": {
+        name: "Line 4 Horizontal",
+        grid: [[1, 1, 1, 1]],
+        cells: 4
+    },
+    "line-4v": {
+        name: "Line 4 Vertical",
+        grid: [[1], [1], [1], [1]],
+        cells: 4
+    },
+    "L-3": {
+        name: "L-3",
+        grid: [[1, 0], [1, 1]],
+        cells: 3
+    },
+    "L-4": {
+        name: "L-4",
+        grid: [[1, 0, 0], [1, 1, 1]],
+        cells: 4
+    },
+    "T-4": {
+        name: "T-4",
+        grid: [[1, 1, 1], [0, 1, 0]],
+        cells: 4
+    },
+    "corner-3": {
+        name: "Corner 3",
+        grid: [[1, 1], [1, 0]],
+        cells: 3
+    }
+};
+
+function rotateGrid(grid, times) {
+    let result = grid;
+    for (let i = 0; i < times; i++) {
+        const rows = result.length;
+        const cols = result[0].length;
+        const rotated = [];
+        for (let c = 0; c < cols; c++) {
+            rotated[c] = [];
+            for (let r = rows - 1; r >= 0; r--) {
+                rotated[c].push(result[r][c]);
+            }
+        }
+        result = rotated;
+    }
+    return result;
+}
+
+function canPlaceShape(shapeKey, startX, startY, rotation) {
+    const shape = SHAPE_TYPES[shapeKey];
+    if (!shape) {
+        return { valid: false, reason: 'Unknown shape type' };
+    }
+    
+    const rotatedGrid = rotateGrid(shape.grid, rotation);
+    const rows = rotatedGrid.length;
+    const cols = rotatedGrid[0].length;
+    
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            if (rotatedGrid[r][c] === 1) {
+                const targetX = startX + c;
+                const targetY = startY + r;
+                
+                if (targetX < 0 || targetX >= 14 || targetY < 0 || targetY >= 14) {
+                    return { valid: false, reason: 'Shape extends beyond mosaic bounds' };
+                }
+                
+                if (gameState.tempMosaic[targetY][targetX] !== '#ffffff') {
+                    return { valid: false, reason: 'Target cell is already filled' };
+                }
+            }
+        }
+    }
+    
+    return { valid: true, reason: '' };
+}
+
+function placeShape(shapeKey, startX, startY, rotation) {
+    // Validate placement first using canPlaceShape
+    const validation = canPlaceShape(shapeKey, startX, startY, rotation);
+    
+    if (!validation.valid) {
+        return { success: false, reason: validation.reason, cellsPlaced: 0 };
+    }
+    
+    const shape = SHAPE_TYPES[shapeKey];
+    const rotatedGrid = rotateGrid(shape.grid, rotation);
+    const colorHex = COLORS[gameState.paintColor].hex;
+    let cellsPlaced = 0;
+    
+    // Fill all shape cells in tempMosaic with current paint color
+    for (let r = 0; r < rotatedGrid.length; r++) {
+        for (let c = 0; c < rotatedGrid[r].length; c++) {
+            if (rotatedGrid[r][c] === 1) {
+                gameState.tempMosaic[startY + r][startX + c] = colorHex;
+                cellsPlaced++;
+            }
+        }
+    }
+    
+    // Increment paintCount by number of cells placed
+    gameState.paintCount += cellsPlaced;
+    
+    return { success: true, reason: '', cellsPlaced: cellsPlaced };
+}
+
 const ROUNDS_BY_PLAYERS = { 1: 10, 2: 8, 3: 6, 4: 5, 5: 4, 6: 3 };
 
 let gameState = {
@@ -163,7 +302,10 @@ function initGame() {
         paintColor: null,
         paintCount: 0,
         paintTotal: 0,
-        tempMosaic: createEmptyMosaic()
+        tempMosaic: createEmptyMosaic(),
+        selectedShape: null,
+        selectedRotation: 0,
+        currentShapes: {}
     };
     renderColorMap();
     renderMosaic();
@@ -415,17 +557,168 @@ function selectNewColor(colorId) {
     showPainting();
 }
 
-function getRandomShape(hits, owned) {
-    if (hits <= 1) {
-        if (Math.random() < 0.7) return { c: 4 };
-        if (Math.random() < 0.875) return { c: 4, C: 1 };
-        return { c: 8 };
+function selectShape(shapeType) {
+    gameState.selectedShape = shapeType;
+    gameState.selectedRotation = 0;
+    updateCurrentShapeDisplay();
+    
+    // Highlight the selected button
+    document.querySelectorAll('.shape-btn').forEach(btn => {
+        btn.classList.remove('selected');
+        if (btn.dataset.shape === shapeType) {
+            btn.classList.add('selected');
+        }
+    });
+}
+
+function updateCurrentShapeDisplay() {
+    const display = document.getElementById('currentShapeDisplay');
+    const rotationSpan = document.getElementById('rotationValue');
+    
+    if (gameState.selectedShape) {
+        const shape = SHAPE_TYPES[gameState.selectedShape];
+        display.innerHTML = `
+            <div class="selected-shape-info">
+                <strong>Selected:</strong> ${shape.name}
+                <br>
+                <span style="font-size: 0.9rem; color: #666;">${shape.cells} cell${shape.cells > 1 ? 's' : ''}</span>
+                <span class="shape-preview" style="margin-left: 10px;">◻</span>
+            </div>
+        `;
     } else {
+        display.innerHTML = '<span style="color: #666;">No shape selected - click a shape above or click on mosaic for single cell</span>';
+    }
+    
+    if (rotationSpan) {
+        rotationSpan.textContent = (gameState.selectedRotation * 90) + '°';
+    }
+}
+
+function rotateShape() {
+    if (!gameState.selectedShape) {
+        alert('Please select a shape first');
+        return;
+    }
+    gameState.selectedRotation = (gameState.selectedRotation + 1) % 4;
+    updateCurrentShapeDisplay();
+}
+
+function updateShapeSelectionUI() {
+    // Update the shape buttons to show remaining counts
+    const container = document.querySelector('.shape-buttons');
+    if (!container) return;
+    
+    let buttonsHtml = '';
+    for (const [shapeType, count] of Object.entries(gameState.currentShapes)) {
+        for (let i = 0; i < count; i++) {
+            const shapeDef = SHAPE_TYPES[shapeType];
+            const cells = shapeDef ? shapeDef.cells : (shapeType === 'small-square' ? 1 : 4);
+            const name = shapeDef ? shapeDef.name : shapeType;
+            const symbol = cells === 1 ? '◻' : '◼';
+            
+            buttonsHtml += `
+                <button class="shape-btn ${gameState.selectedShape === shapeType ? 'selected' : ''}" 
+                        data-shape="${shapeType}" 
+                        onclick="selectShape('${shapeType}')">
+                    ${symbol} ${name}
+                </button>
+            `;
+        }
+    }
+    
+    if (buttonsHtml === '') {
+        buttonsHtml = '<span style="color: #666;">No shapes remaining - use single cell placement</span>';
+    }
+    
+    container.innerHTML = buttonsHtml;
+}
+
+// Helper arrays for varied shape selection
+const SHAPES_BY_CELLS = {
+    1: ['small-square'],
+    2: ['line-2h', 'line-2v'],
+    3: ['line-3h', 'line-3v', 'L-3', 'corner-3'],
+    4: ['big-square', 'line-4h', 'line-4v', 'L-4', 'T-4']
+};
+
+function getRandomShapeType(cells) {
+    // Randomly select a shape type that matches the target cell count
+    const available = SHAPES_BY_CELLS[cells];
+    if (!available || available.length === 0) {
+        // Fallback to small-square repeated
+        return 'small-square';
+    }
+    return available[Math.floor(Math.random() * available.length)];
+}
+
+function getShapeCountPair(totalCells) {
+    // Generate a random pair of shape types that sum to totalCells
+    // Try different combinations for variety
+    const shapes = {};
+    let remaining = totalCells;
+    
+    // Option 1: Use varied shapes based on cell size需求
+    if (remaining >= 4 && Math.random() > 0.3) {
+        // Use big-square-based or multi-cell shapes
+        const numBigShapes = Math.floor(Math.random() * (remaining / 4)) + 1;
+        const bigCount = Math.min(numBigShapes, Math.floor(remaining / 4));
+        
+        if (bigCount > 0) {
+            shapes['big-square'] = bigCount;
+            remaining -= bigCount * 4;
+        }
+    }
+    
+    // Fill remainder with small-square shapes
+    if (remaining > 0) {
+        shapes['small-square'] = (shapes['small-square'] || 0) + remaining;
+    }
+    
+    // Ensure we have at least some variety by occasionally replacing small-squares
+    if (remaining <= 2 && remaining > 0 && Math.random() > 0.5) {
+        // Replace small squares with variety shapes
+        const shapeTypes = ['line-2h', 'line-2v'];
+        const newType = shapeTypes[Math.floor(Math.random() * shapeTypes.length)];
+        delete shapes['small-square'];
+        shapes[newType] = 1;
+    }
+    
+    return shapes;
+}
+
+function getRandomShape(hits, owned) {
+    // Deck1: 0-1 correct answers - 70% 4 cells, 20% 8 cells, 10% 8 cells
+    // Deck2: 2+ correct - 20% 8 cells, 40% 12 cells, 30% 16 cells, 10% 16 cells
+    
+    if (hits <= 1) {
+        // Deck1 distribution
         const r = Math.random();
-        if (r < 0.2) return { c: 8 };
-        if (r < 0.6) return { c: 4, C: 2 };
-        if (r < 0.9) return { c: 8, C: 2 };
-        return { c: 16 };
+        if (r < 0.7) {
+            // 4 cells - vary between small-square×4 or line-4 shapes
+            return getShapeCountPair(4);
+        } else if (r < 0.875) {
+            // 8 cells - either 8 small, 4 small + 1 big, or varied 2×line-4
+            return getShapeCountPair(8);
+        } else {
+            // 8 cells (alternate path for variety)
+            return getShapeCountPair(8);
+        }
+    } else {
+        // Deck2 distribution
+        const r = Math.random();
+        if (r < 0.2) {
+            // 8 cells
+            return getShapeCountPair(8);
+        } else if (r < 0.6) {
+            // 12 cells - varied: 3×small-square, 3×big-square, or mixed
+            return getShapeCountPair(12);
+        } else if (r < 0.9) {
+            // 16 cells
+            return getShapeCountPair(16);
+        } else {
+            // 16 cells (alternate)
+            return getShapeCountPair(16);
+        }
     }
 }
 
@@ -433,17 +726,40 @@ function showPainting() {
     const shapes = getRandomShape(gameState.empathyHits, gameState.playerColors[gameState.currentPlayer].length);
     
     let totalCells = 0;
-    let shapeText = '';
-    for (const [shape, count] of Object.entries(shapes)) {
-        const cells = shape === 'c' ? count : count * 4;
-        totalCells += cells;
-        shapeText += `${count} ${shape === 'c' ? 'small' : 'large'} square${count > 1 ? 's' : ''} `;
+    let shapeButtonsHtml = '';
+    
+    // Generate shape buttons based on shapes available
+    // shapes now returns objects like { 'small-square': 4, 'big-square': 1 }
+    gameState.currentShapes = {};
+    
+    for (const [shapeKey, count] of Object.entries(shapes)) {
+        // Look up cell count from SHAPE_TYPES
+        const shapeDef = SHAPE_TYPES[shapeKey];
+        const cells = shapeDef ? shapeDef.cells : (shapeKey === 'small-square' ? 1 : 4);
+        const name = shapeDef ? shapeDef.name : shapeKey;
+        const symbol = cells === 1 ? '◻' : '◼';
+        
+        totalCells += cells * count;
+        
+        // Store available count for each shape type
+        gameState.currentShapes[shapeKey] = (gameState.currentShapes[shapeKey] || 0) + count;
+        
+        // Create buttons for each count
+        for (let i = 0; i < count; i++) {
+            shapeButtonsHtml += `
+                <button class="shape-btn" data-shape="${shapeKey}" onclick="selectShape('${shapeKey}')">
+                    ${symbol} ${name}
+                </button>
+            `;
+        }
     }
     
     gameState.paintTotal = totalCells;
     gameState.paintCount = 0;
     gameState.tempMosaic = JSON.parse(JSON.stringify(gameState.mosaic));
     gameState.paintColor = null;
+    gameState.selectedShape = null;
+    gameState.selectedRotation = 0;
     
     document.getElementById('paintRoundDisplay').textContent = `Round ${gameState.currentRound}`;
     document.getElementById('paintPlayerDisplay').textContent = gameState.currentPlayer;
@@ -456,7 +772,22 @@ function showPainting() {
               onclick="selectPaintColor(${id})"></div>`
     ).join('');
     
-    document.getElementById('shapeInfo').textContent = `You can paint: ${shapeText}`;
+    // Update shape selection area
+    const shapeSelectionDiv = document.getElementById('shapeSelection');
+    if (shapeSelectionDiv) {
+        shapeSelectionDiv.innerHTML = `
+            <div class="shape-selection-container">
+                <p><strong>Select a shape to place:</strong></p>
+                <div class="shape-buttons">${shapeButtonsHtml}</div>
+                <div id="currentShapeDisplay" class="current-shape-display"></div>
+                <div class="rotation-controls">
+                    <span>Rotation: <span id="rotationValue">0°</span></span>
+                    <button class="btn btn-secondary" onclick="rotateShape()">Rotate (R)</button>
+                </div>
+            </div>
+        `;
+    }
+    
     document.getElementById('paintCount').textContent = '0';
     document.getElementById('paintTotal').textContent = totalCells;
     
@@ -492,18 +823,64 @@ function handleMosaicClick(e) {
     const cellY = Math.floor(y / cellSize);
     
     if (cellX >= 0 && cellX < 14 && cellY >= 0 && cellY < 14) {
-        gameState.tempMosaic[cellY][cellX] = COLORS[gameState.paintColor].hex;
-        gameState.paintCount++;
-        document.getElementById('paintCount').textContent = gameState.paintCount;
-        renderMosaic();
+        // Check if we have a selected shape
+        if (gameState.selectedShape) {
+            // Try to place the selected shape
+            const result = placeShape(gameState.selectedShape, cellX, cellY, gameState.selectedRotation);
+            
+            if (result.success) {
+                // Decrement the available count for this shape type
+                if (gameState.currentShapes[gameState.selectedShape] > 0) {
+                    gameState.currentShapes[gameState.selectedShape]--;
+                }
+                
+                // Update paint count display
+                document.getElementById('paintCount').textContent = gameState.paintCount;
+                renderMosaic();
+                
+                // Update shape selection UI to reflect remaining shapes
+                updateShapeSelectionUI();
+                
+                // Clear selection if no more of this shape type available
+                if (gameState.currentShapes[gameState.selectedShape] <= 0) {
+                    gameState.selectedShape = null;
+                    gameState.selectedRotation = 0;
+                    updateCurrentShapeDisplay();
+                }
+            } else {
+                // Show feedback for invalid placement
+                alert('Cannot place shape here: ' + result.reason);
+            }
+        } else {
+            // Fallback: allow single cell placement (for small squares)
+            // Check if there's room for at least 1 cell
+            if (gameState.tempMosaic[cellY][cellX] === '#ffffff' && gameState.paintCount < gameState.paintTotal) {
+                gameState.tempMosaic[cellY][cellX] = COLORS[gameState.paintColor].hex;
+                gameState.paintCount++;
+                document.getElementById('paintCount').textContent = gameState.paintCount;
+                renderMosaic();
+            }
+        }
     }
 }
 
 function resetPaint() {
     gameState.tempMosaic = JSON.parse(JSON.stringify(gameState.mosaic));
     gameState.paintCount = 0;
+    gameState.selectedShape = null;
+    gameState.selectedRotation = 0;
+    
+    // Reset current shapes to original counts using new format
+    const shapes = getRandomShape(gameState.empathyHits, gameState.playerColors[gameState.currentPlayer].length);
+    gameState.currentShapes = {};
+    for (const [shapeKey, count] of Object.entries(shapes)) {
+        gameState.currentShapes[shapeKey] = (gameState.currentShapes[shapeKey] || 0) + count;
+    }
+    
     document.getElementById('paintCount').textContent = '0';
     renderMosaic();
+    updateShapeSelectionUI();
+    updateCurrentShapeDisplay();
 }
 
 function confirmPaint() {
@@ -613,6 +990,13 @@ function renderMosaic() {
 
 document.getElementById('mosaicCanvas').addEventListener('click', handleMosaicClick);
 
+// Add keyboard handler for rotation (R key)
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'r' || e.key === 'R') {
+        rotateShape();
+    }
+});
+
 initGame();
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -622,6 +1006,10 @@ if (typeof module !== 'undefined' && module.exports) {
         getNeighborColors,
         QUESTIONS,
         COLORS,
-        EDGES
+        EDGES,
+        SHAPE_TYPES,
+        canPlaceShape,
+        placeShape,
+        rotateGrid
     };
 }

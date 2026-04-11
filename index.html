@@ -222,11 +222,65 @@
             transform: scale(1.1);
         }
         
-        .shape-info {
-            background: #f0f0f0;
-            padding: 1rem;
+        .current-shape-display {
+            margin: 1rem 0;
+            padding: 0.8rem;
+            background: #e8f4e8;
             border-radius: 4px;
+            border: 2px solid #4caf50;
+        }
+        
+        .rotation-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
             margin: 0.5rem 0;
+        }
+        
+        .selected-shape-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .shape-preview {
+            font-size: 1.5rem;
+        }
+        
+        .shape-selection-container {
+            background: #f9f9f9;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 0.5rem 0;
+        }
+        
+        .shape-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            margin: 0.8rem 0;
+        }
+        
+        .shape-btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            background: white;
+            border: 2px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .shape-btn:hover {
+            border-color: var(--primary);
+            background: #f0e8f0;
+        }
+        
+        .shape-btn.selected {
+            border-color: var(--primary);
+            background: var(--primary);
+            color: white;
         }
         
         .question-display {
@@ -388,7 +442,7 @@
                 </div>
                 <h3>Choose a Color</h3>
                 <div id="paintColorOptions"></div>
-                <div class="shape-info" id="shapeInfo"></div>
+                <div id="shapeSelection" class="shape-info"></div>
                 <div class="paint-info">
                     <span>Painted: <span id="paintCount">0</span> / <span id="paintTotal">0</span></span>
                 </div>
